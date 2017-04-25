@@ -1,6 +1,8 @@
 import * as vscode from 'vscode'
 import * as path from 'path'
 import * as cp from 'child_process'
+import * as https from 'https'
+import * as fs from 'fs'
 
 import {Extension} from './main'
 
@@ -20,6 +22,11 @@ export class Builder {
         this.disableBuildAfterSave = false
         if (this.currentProcess) {
             this.currentProcess.kill()
+        }
+        const configuration = vscode.workspace.getConfiguration('latex-workshop')
+        if (configuration.get('latexjs.enabled')) {
+            this.latexjs(rootFile)
+            return
         }
         const toolchain = this.createToolchain(rootFile)
         if (toolchain === undefined) {
@@ -84,7 +91,7 @@ export class Builder {
         // Modify a copy, instead of itself.
         const commands = JSON.parse(JSON.stringify(configuration.get('latex.toolchain'))) as ToolchainCommand[]
         for (const command of commands) {
-            if (!('command' in command)){
+            if (!('command' in command)) {
                 vscode.window.showErrorMessage('LaTeX toolchain is invalid. Each tool in the toolchain must have a "command" string.')
                 return undefined
             }
@@ -98,6 +105,37 @@ export class Builder {
             }
         }
         return commands
+    }
+
+    latexjs(rootFile: string) : ToolchainCommand[] | undefined {
+        if (!fs.existsSync('~/.latexjs/apps/latex.js')) {
+            this.installLatexjs(rootFile, (root) => {
+                const currentProcess = cp.fork(path.resolve(path.dirname(root), 'latex.js'), ['install'])
+
+                currentProcess.on('error', err => {
+                    console.log(err.message)
+                })
+
+                currentProcess.on('exit', (code, signal) => {
+                    console.log(code, signal)
+                })
+            })
+        }
+        return undefined
+    }
+
+    installLatexjs(rootFile, installed) {
+        this.extension.logger.addLogMessage(`Install latexjs.`)
+        const file = fs.createWriteStream(path.resolve(path.dirname(rootFile), 'latex.js'))
+        https.get('https://london.latexjs.org/latex.js', (response) => {
+            response.pipe(file)
+            file.on('finish', () => file.close())
+            this.extension.logger.addLogMessage(`Latexjs installed.`)
+            installed(rootFile)
+        }).on('error', (err) => {
+            fs.unlink('latex.js')
+            this.extension.logger.addLogMessage(`Latexjs installation error: ${err.message}`)
+        })
     }
 }
 

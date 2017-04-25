@@ -218,6 +218,11 @@
           ],
           "description": "Files to clean.\nThis property must be an array of strings. File globs such as *.removeme, something?.aux can be used."
         },
+        "latex-workshop.latexjs.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable **experimental** latexjs feature.\nThis config will overwrite `latex-workshop.latex.toolchain` and `latex-workshop.latex.outputDir`.\nRead https://github.com/latexjs/latexjs/blob/master/README.md and https://github.com/James-Yu/LaTeX-Workshop/issues/119 for more information."
+        },
         "latex-workshop.synctex.path": {
           "type": "string",
           "default": "synctex",
